@@ -1,0 +1,68 @@
+name: Security Audit
+
+on:
+  workflow_dispatch:
+
+jobs:
+  security-audit:
+    name: Comprehensive Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit npm dependencies
+        run: |
+          npm audit --audit-level=low --json > npm-audit.json
+          npm audit --audit-level=low
+
+      - name: Run Snyk vulnerability scan
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --json > snyk-report.json
+
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'hr-system-backend'
+          path: '.'
+          format: 'JSON'
+          out: 'dependency-check-report'
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            npm-audit.json
+            snyk-report.json
+            dependency-check-report/
+
+      - name: Security summary
+        run: |
+          echo "Security audit completed"
+          echo "Reports generated:"
+          echo "- npm-audit.json"
+          echo "- snyk-report.json"
+          echo "- dependency-check-report/"
+
+      - name: Fail on high severity vulnerabilities
+        run: |
+          if grep -q '"severity":"high"' npm-audit.json; then
+            echo "High severity vulnerabilities found!"
+            exit 1
+          fi

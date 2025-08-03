@@ -1,0 +1,221 @@
+# 🐳 Production-Ready Docker Compose
+# Security-hardened multi-service setup
+
+version: '3.8'
+
+services:
+  # ================================
+  # HR System Backend
+  # ================================
+  hr-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: hr-system-backend:latest
+    container_name: hr-backend
+    
+    # Security Configuration
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+    
+    # Resource Limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    
+    # Environment Variables
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://hruser:${DB_PASSWORD:-securepass123}@postgres:5432/hr_system
+      - JWT_SECRET=${JWT_SECRET:-your-super-secure-jwt-secret-change-this-in-production}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-refresh-secret-change-this-too}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+    
+    # Temporary filesystems for security
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+      - /var/run:noexec,nosuid,size=100m
+    
+    # Port mapping
+    ports:
+      - "3000:3000"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Dependencies
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    # Network
+    networks:
+      - hr-network
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # PostgreSQL Database
+  # ================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: hr-postgres
+    
+    # Security Configuration
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    
+    # Environment Variables
+    environment:
+      - POSTGRES_DB=hr_system
+      - POSTGRES_USER=hruser
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-securepass123}
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    
+    # Volumes
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - /var/run/postgresql:/var/run/postgresql
+    
+    # Temporary filesystems
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+      - /var/run:noexec,nosuid,size=100m
+    
+    # Port mapping (only for development - remove in production)
+    ports:
+      - "5432:5432"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hruser -d hr_system"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    # Network
+    networks:
+      - hr-network
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Resource Limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # Redis (for caching/sessions)
+  # ================================
+  redis:
+    image: redis:7-alpine
+    container_name: hr-redis
+    
+    # Security Configuration
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    
+    # Command with security settings
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redispass123}
+    
+    # Volumes
+    volumes:
+      - redis_data:/data
+    
+    # Temporary filesystems
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    
+    # Network
+    networks:
+      - hr-network
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Resource Limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+# ================================
+# Networks
+# ================================
+networks:
+  hr-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ================================
+# Volumes
+# ================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local

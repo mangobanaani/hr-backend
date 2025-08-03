@@ -1,0 +1,172 @@
+# 🛡️ Security-focused .dockerignore
+# Exclude sensitive files and reduce attack surface
+
+# ================================
+# Version Control & Git
+# ================================
+.git
+.gitignore
+.gitattributes
+.github/
+
+# ================================
+# Development Files
+# ================================
+README.md
+CONTRIBUTING.md
+CHANGELOG.md
+LICENSE
+*.md
+
+# ================================
+# Environment & Secrets
+# ================================
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+config/local.*
+
+# ================================
+# Dependencies & Build Cache
+# ================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.yarn/
+.pnp.*
+
+# ================================
+# Development Tools
+# ================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ================================
+# Testing & Coverage
+# ================================
+test/
+coverage/
+.nyc_output/
+junit.xml
+test-results/
+*.spec.ts
+*.test.ts
+
+# ================================
+# Build Artifacts (except dist/)
+# ================================
+build/
+temp/
+tmp/
+.cache/
+.parcel-cache/
+
+# ================================
+# Logs & Runtime
+# ================================
+logs/
+*.log
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# ================================
+# OS Files
+# ================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ================================
+# Security Tools
+# ================================
+.eslintcache
+.stylelintcache
+.prettier*
+.editorconfig
+
+# ================================
+# Documentation
+# ================================
+docs/
+documentation/
+*.pdf
+*.doc
+*.docx
+
+# ================================
+# Database
+# ================================
+*.sqlite
+*.sqlite3
+*.db
+migrations/
+
+# ================================
+# Docker & Deployment
+# ================================
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+.docker/
+k8s/
+helm/
+terraform/
+
+# ================================
+# CI/CD
+# ================================
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+.jenkins/
+azure-pipelines.yml
+
+# ================================
+# Package Manager
+# ================================
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ================================
+# TypeScript
+# ================================
+*.tsbuildinfo
+.tscache/
+
+# ================================
+# Prisma (keep schema, exclude dev files)
+# ================================
+prisma/dev.db
+prisma/migrations/
+prisma/seed.*
+
+# ================================
+# Monitoring & Analytics
+# ================================
+.sentry/
+newrelic_agent.log
+.nyc_output/
+
+# Include only essential files for production
+!dist/
+!node_modules/
+!package.json
+!prisma/schema.prisma
