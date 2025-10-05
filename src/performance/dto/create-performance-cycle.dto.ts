@@ -56,7 +56,4 @@ export class CreatePerformanceCycleDto {
     | 'COMPLETED'
     | 'CANCELLED' = 'PLANNED';
 
-  @IsOptional()
-  @IsString()
-  templateId?: string;
 }

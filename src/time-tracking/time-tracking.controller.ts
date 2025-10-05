@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -14,14 +15,20 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TimeTrackingService } from './time-tracking.service';
+import { CreateTimeRecordDto } from './dto/create-time-record.dto';
+import { UpdateTimeRecordDto } from './dto/update-time-record.dto';
 
 @ApiTags('time-tracking')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('time-tracking')
 export class TimeTrackingController {
+  constructor(private readonly timeTrackingService: TimeTrackingService) {}
+
   @Post()
   @ApiOperation({
     summary: 'Create time entry',
@@ -31,10 +38,8 @@ export class TimeTrackingController {
     status: 201,
     description: 'Time entry created successfully',
   })
-  create(@Body() _data: Record<string, unknown>): { message: string } {
-    return {
-      message: 'Time tracking entry creation endpoint - to be implemented',
-    };
+  async create(@Body() createTimeRecordDto: CreateTimeRecordDto) {
+    return this.timeTrackingService.create(createTimeRecordDto);
   }
 
   @Get()
@@ -42,14 +47,31 @@ export class TimeTrackingController {
     summary: 'Get all time entries',
     description: 'Retrieve a list of all time tracking entries',
   })
+  @ApiQuery({
+    name: 'employeeId',
+    required: false,
+    description: 'Filter by employee ID',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    description: 'Filter by start date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    description: 'Filter by end date (YYYY-MM-DD)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Time entries list retrieved successfully',
   })
-  findAll(): { message: string } {
-    return {
-      message: 'Time tracking entries list endpoint - to be implemented',
-    };
+  async findAll(
+    @Query('employeeId') employeeId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.timeTrackingService.findAll(employeeId, startDate, endDate);
   }
 
   @Get(':id')
@@ -66,10 +88,8 @@ export class TimeTrackingController {
     status: 200,
     description: 'Time entry retrieved successfully',
   })
-  findOne(@Param('id') id: string): { message: string } {
-    return {
-      message: `Time entry ${id} details - to be implemented`,
-    };
+  async findOne(@Param('id') id: string) {
+    return this.timeTrackingService.findOne(id);
   }
 
   @Patch(':id')
@@ -86,13 +106,47 @@ export class TimeTrackingController {
     status: 200,
     description: 'Time entry updated successfully',
   })
-  update(
+  async update(
     @Param('id') id: string,
-    @Body() _data: Record<string, unknown>,
-  ): { message: string } {
-    return {
-      message: `Time entry ${id} update - to be implemented`,
-    };
+    @Body() updateTimeRecordDto: UpdateTimeRecordDto,
+  ) {
+    return this.timeTrackingService.update(id, updateTimeRecordDto);
+  }
+
+  @Patch(':id/approve')
+  @ApiOperation({
+    summary: 'Approve time entry',
+    description: 'Approve a pending time entry',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Time Entry ID',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Time entry approved successfully',
+  })
+  async approve(@Param('id') id: string) {
+    return this.timeTrackingService.approve(id);
+  }
+
+  @Patch(':id/reject')
+  @ApiOperation({
+    summary: 'Reject time entry',
+    description: 'Reject a pending time entry',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Time Entry ID',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Time entry rejected successfully',
+  })
+  async reject(@Param('id') id: string, @Body('reason') reason?: string) {
+    return this.timeTrackingService.reject(id, reason);
   }
 
   @Delete(':id')
@@ -109,9 +163,7 @@ export class TimeTrackingController {
     status: 200,
     description: 'Time entry deleted successfully',
   })
-  remove(@Param('id') id: string): { message: string } {
-    return {
-      message: `Time entry ${id} deletion - to be implemented`,
-    };
+  async remove(@Param('id') id: string) {
+    return this.timeTrackingService.remove(id);
   }
 }

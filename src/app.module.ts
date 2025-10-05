@@ -18,6 +18,7 @@ import { AnnouncementsModule } from './announcements/announcements.module';
 import { SecurityModule } from './security/security.module';
 import { SkillsModule } from './skills/skills.module';
 import { EmployeeSkillsModule } from './employee-skills/employee-skills.module';
+import { GoalsModule } from './goals/goals.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { EmployeeSkillsModule } from './employee-skills/employee-skills.module';
     AnnouncementsModule,
     SkillsModule,
     EmployeeSkillsModule,
+    GoalsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
