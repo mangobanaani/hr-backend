@@ -57,6 +57,9 @@
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   },
+  "overrides": {
+    "lodash": "4.17.23"
+  },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
