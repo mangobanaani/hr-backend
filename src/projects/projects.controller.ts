@@ -16,6 +16,7 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/guards/roles.decorator';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -27,6 +28,7 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({
     summary: 'Create project',
@@ -71,6 +73,7 @@ export class ProjectsController {
     return this.projectsService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({
     summary: 'Update project',
@@ -92,6 +95,7 @@ export class ProjectsController {
     return this.projectsService.update(id, updateProjectDto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete project',
@@ -110,6 +114,7 @@ export class ProjectsController {
     return this.projectsService.remove(id);
   }
 
+  @Roles('admin')
   @Post(':projectId/teams/:teamId')
   @ApiOperation({
     summary: 'Assign team to project',
@@ -137,6 +142,7 @@ export class ProjectsController {
     return this.projectsService.assignTeam(projectId, teamId, role);
   }
 
+  @Roles('admin')
   @Delete(':projectId/teams/:teamId')
   @ApiOperation({
     summary: 'Remove team from project',

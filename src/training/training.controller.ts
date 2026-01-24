@@ -16,6 +16,7 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/guards/roles.decorator';
 import { TrainingService } from './training.service';
 import { CreateTrainingDto } from './dto/create-training.dto';
 import { UpdateTrainingDto } from './dto/update-training.dto';
@@ -27,6 +28,7 @@ import { UpdateTrainingDto } from './dto/update-training.dto';
 export class TrainingController {
   constructor(private readonly trainingService: TrainingService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({
     summary: 'Create training',
@@ -68,6 +70,7 @@ export class TrainingController {
     return await this.trainingService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({
     summary: 'Update training',
@@ -86,6 +89,7 @@ export class TrainingController {
     return await this.trainingService.update(id, updateTrainingDto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete training',

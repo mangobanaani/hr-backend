@@ -18,6 +18,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/guards/roles.decorator';
 import { PerformanceService } from './performance.service';
 import { CreatePerformanceCycleDto } from './dto/create-performance-cycle.dto';
 import { UpdatePerformanceCycleDto } from './dto/update-performance-cycle.dto';
@@ -33,6 +34,7 @@ export class PerformanceController {
 
   // ==================== Performance Cycles ====================
 
+  @Roles('admin')
   @Post('cycles')
   @ApiOperation({
     summary: 'Create performance cycle',
@@ -82,6 +84,7 @@ export class PerformanceController {
     return this.performanceService.findOneCycle(id);
   }
 
+  @Roles('admin')
   @Patch('cycles/:id')
   @ApiOperation({
     summary: 'Update performance cycle',
@@ -103,6 +106,7 @@ export class PerformanceController {
     return this.performanceService.updateCycle(id, updateCycleDto);
   }
 
+  @Roles('admin')
   @Delete('cycles/:id')
   @ApiOperation({
     summary: 'Delete performance cycle',
@@ -123,6 +127,7 @@ export class PerformanceController {
 
   // ==================== Performance Reviews ====================
 
+  @Roles('admin')
   @Post('reviews')
   @ApiOperation({
     summary: 'Create performance review',
@@ -190,6 +195,7 @@ export class PerformanceController {
     return this.performanceService.findOneReview(id);
   }
 
+  @Roles('admin')
   @Patch('reviews/:id')
   @ApiOperation({
     summary: 'Update performance review',
@@ -211,6 +217,7 @@ export class PerformanceController {
     return this.performanceService.updateReview(id, updateReviewDto);
   }
 
+  @Roles('admin')
   @Patch('reviews/:id/submit')
   @ApiOperation({
     summary: 'Submit performance review',
@@ -229,6 +236,7 @@ export class PerformanceController {
     return this.performanceService.submitReview(id);
   }
 
+  @Roles('admin')
   @Patch('reviews/:id/complete')
   @ApiOperation({
     summary: 'Complete performance review',
@@ -247,6 +255,7 @@ export class PerformanceController {
     return this.performanceService.completeReview(id);
   }
 
+  @Roles('admin')
   @Delete('reviews/:id')
   @ApiOperation({
     summary: 'Delete performance review',

@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsUrl, IsEmail } from 'class-validator';
+import { CompanySize } from '@prisma/client';
+import { IsString, IsOptional, IsUrl, IsEmail, IsEnum } from 'class-validator';
 
 export class CreateCompanyDto {
   @ApiProperty()
@@ -23,8 +24,8 @@ export class CreateCompanyDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsString()
-  size?: string;
+  @IsEnum(CompanySize)
+  size?: CompanySize;
 
   @ApiProperty({ required: false })
   @IsOptional()

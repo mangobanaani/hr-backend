@@ -13,6 +13,7 @@ const mockPrismaService = {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    count: jest.fn(),
   },
   department: {
     findUnique: jest.fn(),
@@ -20,6 +21,12 @@ const mockPrismaService = {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+  },
+  userSession: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn(),
+    deleteMany: jest.fn(),
   },
   $connect: jest.fn(),
   $disconnect: jest.fn(),

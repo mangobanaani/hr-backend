@@ -15,6 +15,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/guards/roles.decorator';
 import { AnnouncementsService } from './announcements.service';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { UpdateAnnouncementDto } from './dto/update-announcement.dto';
@@ -27,6 +28,7 @@ import { Announcement } from './entities/announcement.entity';
 export class AnnouncementsController {
   constructor(private readonly announcementsService: AnnouncementsService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({ summary: 'Create a new announcement' })
   @ApiResponse({
@@ -53,6 +55,7 @@ export class AnnouncementsController {
     return this.announcementsService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({ summary: 'Update an announcement' })
   @ApiResponse({
@@ -66,6 +69,7 @@ export class AnnouncementsController {
     return this.announcementsService.update(id, updateAnnouncementDto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete an announcement' })
   @ApiResponse({

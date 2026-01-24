@@ -21,6 +21,7 @@ import { SkillsService } from './skills.service';
 import { CreateSkillDto } from './dto/create-skill.dto';
 import { UpdateSkillDto } from './dto/update-skill.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/guards/roles.decorator';
 import { Skill } from '@prisma/client';
 
 @ApiTags('skills')
@@ -30,6 +31,7 @@ import { Skill } from '@prisma/client';
 export class SkillsController {
   constructor(private readonly skillsService: SkillsService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({ summary: 'Create a new skill' })
   @ApiResponse({
@@ -87,6 +89,7 @@ export class SkillsController {
     return this.skillsService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({ summary: 'Update a skill' })
   @ApiParam({ name: 'id', description: 'Skill ID' })
@@ -109,6 +112,7 @@ export class SkillsController {
     return this.skillsService.update(id, updateSkillDto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a skill' })
   @ApiParam({ name: 'id', description: 'Skill ID' })

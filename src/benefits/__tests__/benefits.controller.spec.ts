@@ -17,6 +17,16 @@ describe('BenefitsController', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    employee: {
+      findUnique: jest.fn(),
+    },
+    employeeBenefit: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
   };
 
   const mockJwtAuthGuard = {
@@ -202,6 +212,37 @@ describe('BenefitsController', () => {
       });
 
       await expect(controller.remove('1')).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('enroll', () => {
+    it('enrolls an employee in a benefit', async () => {
+      mockPrismaService.benefit.findUnique.mockResolvedValue({ id: 'b1' });
+      mockPrismaService.employee.findUnique.mockResolvedValue({ id: 'e1' });
+      mockPrismaService.employeeBenefit.findUnique.mockResolvedValue(null);
+      mockPrismaService.employeeBenefit.create.mockResolvedValue({
+        id: 'enroll-1',
+      });
+
+      const result = await controller.enroll('b1', {
+        employeeId: 'e1',
+        startDate: '2026-01-01',
+      });
+
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('listEnrollments', () => {
+    it('lists benefit enrollments', async () => {
+      mockPrismaService.benefit.findUnique.mockResolvedValue({ id: 'b1' });
+      mockPrismaService.employeeBenefit.findMany.mockResolvedValue([
+        { id: 'enroll-1' },
+      ]);
+
+      const result = await controller.listEnrollments('b1');
+
+      expect(result.count).toBe(1);
     });
   });
 });

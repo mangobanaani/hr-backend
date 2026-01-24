@@ -15,6 +15,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/guards/roles.decorator';
 import { DocumentsService } from './documents.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
@@ -26,6 +27,7 @@ import { UpdateDocumentDto } from './dto/update-document.dto';
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({ summary: 'Create a new document' })
   @ApiResponse({
@@ -50,6 +52,7 @@ export class DocumentsController {
     return this.documentsService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({ summary: 'Update a document' })
   @ApiResponse({
@@ -63,6 +66,7 @@ export class DocumentsController {
     return this.documentsService.update(id, updateDocumentDto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a document' })
   @ApiResponse({

@@ -15,6 +15,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/guards/roles.decorator';
 import { CompaniesService } from './companies.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
@@ -27,6 +28,7 @@ import { Company } from './entities/company.entity';
 export class CompaniesController {
   constructor(private readonly companiesService: CompaniesService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({ summary: 'Create a new company' })
   @ApiResponse({
@@ -52,6 +54,7 @@ export class CompaniesController {
     return this.companiesService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({ summary: 'Update a company' })
   @ApiResponse({
@@ -65,6 +68,7 @@ export class CompaniesController {
     return this.companiesService.update(id, updateCompanyDto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a company' })
   @ApiResponse({

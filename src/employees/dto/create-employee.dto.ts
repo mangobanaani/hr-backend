@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsDateString,
   IsEnum,
+  IsNotEmpty,
 } from 'class-validator';
 
 export enum EmploymentStatus {
@@ -77,6 +78,11 @@ export class CreateEmployeeDto {
   @IsString()
   @IsOptional()
   country?: string;
+
+  @ApiProperty({ description: 'Company ID' })
+  @IsString()
+  @IsNotEmpty()
+  companyId!: string;
 
   @ApiProperty({ description: 'Hire date' })
   @IsDateString()

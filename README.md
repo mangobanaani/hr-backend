@@ -231,64 +231,142 @@ sequenceDiagram
 
 ### Authentication Endpoints
 - `POST /auth/login` - User authentication
-- `POST /auth/refresh` - Refresh access token
-- `POST /auth/logout` - User logout
+- `POST /auth/refresh` - Refresh access token (Authorization: `Bearer <refresh_token>`)
+- `POST /auth/logout` - Logout (Authorization: `Bearer <refresh_token>`)
+- `GET /auth/profile` - Current user profile
+
+> **RBAC:** All write endpoints (`POST`, `PATCH`, `PUT`, `DELETE`) require the `admin` role. Read endpoints (`GET`) require authentication.
 
 ### Employee Management
 - `GET /employees` - List all employees
 - `POST /employees` - Create new employee
 - `GET /employees/:id` - Get employee details
-- `PUT /employees/:id` - Update employee
+- `PATCH /employees/:id` - Update employee (partial)
+- `PUT /employees/:id` - Update employee (full replacement)
 - `DELETE /employees/:id` - Delete employee
 
-### Company & Department Management
+### Company Management
 - `GET /companies` - List companies
 - `POST /companies` - Create company
+- `GET /companies/:id` - Get company details
+- `PATCH /companies/:id` - Update company
+- `DELETE /companies/:id` - Delete company
+
+### Department Management
 - `GET /departments` - List departments
 - `POST /departments` - Create department
+- `GET /departments/:id` - Get department details
+- `PATCH /departments/:id` - Update department
+- `DELETE /departments/:id` - Delete department
 
 ### Benefits Administration
 - `GET /benefits` - List benefits
 - `POST /benefits` - Create benefit
+- `GET /benefits/:id` - Get benefit details
 - `PATCH /benefits/:id` - Update benefit
 - `DELETE /benefits/:id` - Delete benefit
+- `POST /benefits/:id/enrollments` - Enroll employee in benefit
+- `GET /benefits/:id/enrollments` - List benefit enrollments
+- `PATCH /benefits/:id/enrollments/:enrollmentId` - Update benefit enrollment
+- `DELETE /benefits/:id/enrollments/:enrollmentId` - Remove benefit enrollment
 
 ### Performance Management
 - `GET /performance/cycles` - List performance cycles
 - `POST /performance/cycles` - Create performance cycle
+- `GET /performance/cycles/:id` - Get performance cycle
+- `PATCH /performance/cycles/:id` - Update performance cycle
+- `DELETE /performance/cycles/:id` - Delete performance cycle
 - `GET /performance/reviews` - List performance reviews
-- `POST /performance/reviews` - Create review
+- `POST /performance/reviews` - Create performance review
+- `GET /performance/reviews/:id` - Get performance review
+- `PATCH /performance/reviews/:id` - Update performance review
 - `PATCH /performance/reviews/:id/submit` - Submit review for approval
 - `PATCH /performance/reviews/:id/complete` - Complete review
+- `DELETE /performance/reviews/:id` - Delete performance review
 
 ### Goals Management
 - `GET /goals` - List goals
 - `POST /goals` - Create goal
+- `GET /goals/:id` - Get goal details
 - `PATCH /goals/:id` - Update goal
 - `PATCH /goals/:id/progress` - Update goal progress
 - `DELETE /goals/:id` - Delete goal
 
+### Training & Development
+- `GET /training` - List training programs
+- `POST /training` - Create training
+- `GET /training/:id` - Get training
+- `PATCH /training/:id` - Update training
+- `DELETE /training/:id` - Delete training
+
 ### Time Tracking
 - `GET /time-tracking` - List time entries with filters
 - `POST /time-tracking` - Create time entry
+- `GET /time-tracking/:id` - Get time entry
 - `PATCH /time-tracking/:id` - Update time entry
 - `PATCH /time-tracking/:id/approve` - Approve time entry
 - `PATCH /time-tracking/:id/reject` - Reject time entry
+- `DELETE /time-tracking/:id` - Delete time entry
 
 ### Expense Management
 - `GET /expenses` - List expenses
 - `POST /expenses` - Create expense
+- `GET /expenses/:id` - Get expense
+- `PATCH /expenses/:id` - Update expense
 - `PATCH /expenses/:id/approve` - Approve expense
 - `PATCH /expenses/:id/reject` - Reject expense
+- `DELETE /expenses/:id` - Delete expense
 - `GET /expenses/categories` - List expense categories
 - `POST /expenses/categories` - Create expense category
+- `GET /expenses/categories/:id` - Get expense category
+- `PATCH /expenses/categories/:id` - Update expense category
+- `DELETE /expenses/categories/:id` - Delete expense category
 
 ### Project Management
 - `GET /projects` - List projects
 - `POST /projects` - Create project
+- `GET /projects/:id` - Get project
 - `PATCH /projects/:id` - Update project
+- `DELETE /projects/:id` - Delete project
 - `POST /projects/:projectId/teams/:teamId` - Assign team to project
 - `DELETE /projects/:projectId/teams/:teamId` - Remove team from project
+
+### Document Management
+- `GET /documents` - List documents
+- `POST /documents` - Create document
+- `GET /documents/:id` - Get document
+- `PATCH /documents/:id` - Update document
+- `DELETE /documents/:id` - Delete document
+
+### Policy Management
+- `GET /policies` - List policies
+- `POST /policies` - Create policy
+- `GET /policies/:id` - Get policy
+- `PATCH /policies/:id` - Update policy
+- `DELETE /policies/:id` - Delete policy
+
+### Announcements
+- `GET /announcements` - List announcements
+- `POST /announcements` - Create announcement
+- `GET /announcements/:id` - Get announcement
+- `PATCH /announcements/:id` - Update announcement
+- `DELETE /announcements/:id` - Delete announcement
+
+### Skills Management
+- `GET /skills` - List skills
+- `POST /skills` - Create skill
+- `GET /skills/categories` - List skill categories
+- `GET /skills/:id` - Get skill
+- `PATCH /skills/:id` - Update skill
+- `DELETE /skills/:id` - Delete skill
+
+### Employee Skills
+- `GET /employee-skills` - List employee skills
+- `POST /employee-skills` - Create employee skill
+- `GET /employee-skills/employee/:employeeId` - List skills for an employee
+- `GET /employee-skills/:id` - Get employee skill
+- `PATCH /employee-skills/:id` - Update employee skill
+- `DELETE /employee-skills/:id` - Delete employee skill
 
 **Full interactive API documentation with Swagger UI available at: `http://localhost:3000/api/docs`**
 
@@ -540,18 +618,53 @@ npm run test:cov
 |--------|----------|---------|-------------|
 | Auth | `/auth/login` | POST | User login |
 | Auth | `/auth/refresh` | POST | Refresh token |
+| Auth | `/auth/logout` | POST | User logout |
+| Auth | `/auth/profile` | GET | Current user profile |
 | Employees | `/employees` | GET/POST | List/Create employees |
-| Employees | `/employees/:id` | GET/PATCH/DELETE | Employee operations |
+| Employees | `/employees/:id` | GET/PATCH/PUT/DELETE | Employee operations |
 | Companies | `/companies` | GET/POST | List/Create companies |
+| Companies | `/companies/:id` | GET/PATCH/DELETE | Company operations |
 | Departments | `/departments` | GET/POST | List/Create departments |
+| Departments | `/departments/:id` | GET/PATCH/DELETE | Department operations |
 | Benefits | `/benefits` | GET/POST | List/Create benefits |
+| Benefits | `/benefits/:id` | GET/PATCH/DELETE | Benefit operations |
+| Benefits | `/benefits/:id/enrollments` | GET/POST | Benefit enrollments |
+| Benefits | `/benefits/:id/enrollments/:enrollmentId` | PATCH/DELETE | Enrollment updates |
 | Performance | `/performance/cycles` | GET/POST | Performance cycles |
+| Performance | `/performance/cycles/:id` | GET/PATCH/DELETE | Cycle operations |
 | Performance | `/performance/reviews` | GET/POST | Performance reviews |
+| Performance | `/performance/reviews/:id` | GET/PATCH/DELETE | Review operations |
+| Performance | `/performance/reviews/:id/submit` | PATCH | Submit review |
+| Performance | `/performance/reviews/:id/complete` | PATCH | Complete review |
 | Goals | `/goals` | GET/POST | Employee goals |
+| Goals | `/goals/:id` | GET/PATCH/DELETE | Goal operations |
+| Goals | `/goals/:id/progress` | PATCH | Goal progress |
 | Time Tracking | `/time-tracking` | GET/POST | Time entries |
+| Time Tracking | `/time-tracking/:id` | GET/PATCH/DELETE | Time entry operations |
+| Time Tracking | `/time-tracking/:id/approve` | PATCH | Approve time entry |
+| Time Tracking | `/time-tracking/:id/reject` | PATCH | Reject time entry |
 | Expenses | `/expenses` | GET/POST | Expense reports |
+| Expenses | `/expenses/:id` | GET/PATCH/DELETE | Expense operations |
+| Expenses | `/expenses/:id/approve` | PATCH | Approve expense |
+| Expenses | `/expenses/:id/reject` | PATCH | Reject expense |
+| Expenses | `/expenses/categories` | GET/POST | Expense categories |
+| Expenses | `/expenses/categories/:id` | GET/PATCH/DELETE | Expense category operations |
 | Projects | `/projects` | GET/POST | Project management |
+| Projects | `/projects/:id` | GET/PATCH/DELETE | Project operations |
+| Projects | `/projects/:projectId/teams/:teamId` | POST/DELETE | Team assignments |
 | Training | `/training` | GET/POST | Training programs |
+| Training | `/training/:id` | GET/PATCH/DELETE | Training operations |
+| Documents | `/documents` | GET/POST | Documents |
+| Documents | `/documents/:id` | GET/PATCH/DELETE | Document operations |
+| Policies | `/policies` | GET/POST | Policies |
+| Policies | `/policies/:id` | GET/PATCH/DELETE | Policy operations |
+| Announcements | `/announcements` | GET/POST | Announcements |
+| Announcements | `/announcements/:id` | GET/PATCH/DELETE | Announcement operations |
 | Skills | `/skills` | GET/POST | Skills management |
+| Skills | `/skills/categories` | GET | Skill categories |
+| Skills | `/skills/:id` | GET/PATCH/DELETE | Skill operations |
+| Employee Skills | `/employee-skills` | GET/POST | Employee skills |
+| Employee Skills | `/employee-skills/employee/:employeeId` | GET | Employee skill list |
+| Employee Skills | `/employee-skills/:id` | GET/PATCH/DELETE | Employee skill operations |
 
 For complete API documentation, visit: `http://localhost:3000/api/docs`

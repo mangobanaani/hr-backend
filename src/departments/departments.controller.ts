@@ -16,6 +16,7 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/guards/roles.decorator';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { DepartmentsService } from './departments.service';
@@ -28,6 +29,7 @@ import { Department } from './entities/department.entity';
 export class DepartmentsController {
   constructor(private readonly departmentsService: DepartmentsService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({
     summary: 'Create a new department',
@@ -74,6 +76,7 @@ export class DepartmentsController {
     return this.departmentsService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({
     summary: 'Update department',
@@ -95,6 +98,7 @@ export class DepartmentsController {
     return this.departmentsService.update(id, updateDepartmentDto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete department',

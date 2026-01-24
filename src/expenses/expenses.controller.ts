@@ -18,6 +18,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/guards/roles.decorator';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
@@ -33,6 +34,7 @@ export class ExpensesController {
 
   // ==================== Expenses ====================
 
+  @Roles('admin')
   @Post()
   @ApiOperation({
     summary: 'Create expense',
@@ -82,6 +84,7 @@ export class ExpensesController {
     return this.expensesService.findOneExpense(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({
     summary: 'Update expense',
@@ -103,6 +106,7 @@ export class ExpensesController {
     return this.expensesService.updateExpense(id, updateExpenseDto);
   }
 
+  @Roles('admin')
   @Patch(':id/approve')
   @ApiOperation({
     summary: 'Approve expense',
@@ -124,6 +128,7 @@ export class ExpensesController {
     return this.expensesService.approveExpense(id, approverId);
   }
 
+  @Roles('admin')
   @Patch(':id/reject')
   @ApiOperation({
     summary: 'Reject expense',
@@ -142,6 +147,7 @@ export class ExpensesController {
     return this.expensesService.rejectExpense(id, reason);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete expense',
@@ -162,6 +168,7 @@ export class ExpensesController {
 
   // ==================== Expense Categories ====================
 
+  @Roles('admin')
   @Post('categories')
   @ApiOperation({
     summary: 'Create expense category',
@@ -206,6 +213,7 @@ export class ExpensesController {
     return this.expensesService.findOneCategory(id);
   }
 
+  @Roles('admin')
   @Patch('categories/:id')
   @ApiOperation({
     summary: 'Update expense category',
@@ -227,6 +235,7 @@ export class ExpensesController {
     return this.expensesService.updateCategory(id, updateCategoryDto);
   }
 
+  @Roles('admin')
   @Delete('categories/:id')
   @ApiOperation({
     summary: 'Delete expense category',

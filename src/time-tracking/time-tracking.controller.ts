@@ -17,10 +17,14 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
+import type { TimeRecord } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/guards/roles.decorator';
 import { TimeTrackingService } from './time-tracking.service';
 import { CreateTimeRecordDto } from './dto/create-time-record.dto';
 import { UpdateTimeRecordDto } from './dto/update-time-record.dto';
+import { CursorPaginationDto } from '../common/dto/cursor-pagination.dto';
+import { CursorPaginatedResponse } from '../common/interfaces/paginated-response.interface';
 
 @ApiTags('time-tracking')
 @ApiBearerAuth()
@@ -29,6 +33,7 @@ import { UpdateTimeRecordDto } from './dto/update-time-record.dto';
 export class TimeTrackingController {
   constructor(private readonly timeTrackingService: TimeTrackingService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({
     summary: 'Create time entry',
@@ -38,7 +43,9 @@ export class TimeTrackingController {
     status: 201,
     description: 'Time entry created successfully',
   })
-  async create(@Body() createTimeRecordDto: CreateTimeRecordDto) {
+  async create(
+    @Body() createTimeRecordDto: CreateTimeRecordDto,
+  ): Promise<TimeRecord> {
     return this.timeTrackingService.create(createTimeRecordDto);
   }
 
@@ -64,14 +71,15 @@ export class TimeTrackingController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Time entries list retrieved successfully',
+    description: 'Time entries list retrieved successfully with cursor pagination',
   })
   async findAll(
     @Query('employeeId') employeeId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
-  ) {
-    return this.timeTrackingService.findAll(employeeId, startDate, endDate);
+    @Query() pagination?: CursorPaginationDto,
+  ): Promise<CursorPaginatedResponse<TimeRecord>> {
+    return this.timeTrackingService.findAll(employeeId, startDate, endDate, pagination);
   }
 
   @Get(':id')
@@ -88,10 +96,11 @@ export class TimeTrackingController {
     status: 200,
     description: 'Time entry retrieved successfully',
   })
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string): Promise<TimeRecord> {
     return this.timeTrackingService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({
     summary: 'Update time entry',
@@ -109,10 +118,11 @@ export class TimeTrackingController {
   async update(
     @Param('id') id: string,
     @Body() updateTimeRecordDto: UpdateTimeRecordDto,
-  ) {
+  ): Promise<TimeRecord> {
     return this.timeTrackingService.update(id, updateTimeRecordDto);
   }
 
+  @Roles('admin')
   @Patch(':id/approve')
   @ApiOperation({
     summary: 'Approve time entry',
@@ -127,10 +137,11 @@ export class TimeTrackingController {
     status: 200,
     description: 'Time entry approved successfully',
   })
-  async approve(@Param('id') id: string) {
+  async approve(@Param('id') id: string): Promise<TimeRecord> {
     return this.timeTrackingService.approve(id);
   }
 
+  @Roles('admin')
   @Patch(':id/reject')
   @ApiOperation({
     summary: 'Reject time entry',
@@ -145,10 +156,14 @@ export class TimeTrackingController {
     status: 200,
     description: 'Time entry rejected successfully',
   })
-  async reject(@Param('id') id: string, @Body('reason') reason?: string) {
+  async reject(
+    @Param('id') id: string,
+    @Body('reason') reason?: string,
+  ): Promise<TimeRecord> {
     return this.timeTrackingService.reject(id, reason);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete time entry',
@@ -163,7 +178,7 @@ export class TimeTrackingController {
     status: 200,
     description: 'Time entry deleted successfully',
   })
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string): Promise<{ message: string }> {
     return this.timeTrackingService.remove(id);
   }
 }

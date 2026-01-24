@@ -1,25 +1,16 @@
+import { UnauthorizedException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
-import {
-  UnauthorizedException,
-  type INestApplication,
-  type ExecutionContext,
-} from '@nestjs/common';
-import * as request from 'supertest';
-import { AuthController } from '../auth.controller';
+import { AuthController, type AuthenticatedRequest } from '../auth.controller';
 import { AuthService } from '../auth.service';
-import { LocalAuthGuard } from '../guards/local-auth.guard';
-import type { Server } from 'http';
 
 describe('AuthController', () => {
-  let app: INestApplication;
+  let controller: AuthController;
 
   const mockAuthService = {
     login: jest.fn(),
-    validateUser: jest.fn(),
-  };
-
-  const mockLocalAuthGuard = {
-    canActivate: jest.fn().mockReturnValue(true),
+    refresh: jest.fn(),
+    logout: jest.fn(),
+    validateUserById: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -31,23 +22,36 @@ describe('AuthController', () => {
           useValue: mockAuthService,
         },
       ],
-    })
-      .overrideGuard(LocalAuthGuard)
-      .useValue(mockLocalAuthGuard)
-      .compile();
+    }).compile();
 
-    app = module.createNestApplication();
-    await app.init();
+    controller = module.get<AuthController>(AuthController);
   });
 
-  afterEach(async () => {
-    await app.close();
+  afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('POST /auth/login', () => {
-    it('should login successfully with valid credentials', async () => {
-      // Arrange
+  type MockRequest = AuthenticatedRequest & {
+    ip?: string;
+    headers?: Record<string, string>;
+  };
+
+  describe('login', () => {
+    it('returns refresh_token', async () => {
+      mockAuthService.login.mockResolvedValue({
+        access_token: 'access',
+        refresh_token: 'refresh',
+        user: { id: 'u1', email: 'a@b.com', isActive: true },
+      });
+
+      const result = await controller.login({
+        user: { id: 'u1', email: 'a@b.com', isActive: true },
+      });
+
+      expect(result.refresh_token).toBe('refresh');
+    });
+
+    it('should return auth service response for valid user', async () => {
       const mockUser = {
         id: 'user-1',
         email: 'test@example.com',
@@ -59,58 +63,118 @@ describe('AuthController', () => {
       };
 
       mockAuthService.login.mockResolvedValue(loginResponse);
-      mockLocalAuthGuard.canActivate.mockImplementation(
-        (context: ExecutionContext) => {
-          const req = context
-            .switchToHttp()
-            .getRequest<{ user: typeof mockUser }>();
-          req.user = mockUser; // Set the user on the request
-          return true;
-        },
+
+      const request: MockRequest = {
+        user: mockUser,
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest-agent' },
+      };
+
+      const result = await controller.login(request);
+
+      expect(result).toEqual(loginResponse);
+      expect(mockAuthService.login).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'user-1',
+          email: 'test@example.com',
+          password: '',
+          isActive: true,
+          createdAt: expect.any(Date),
+          updatedAt: expect.any(Date),
+        }),
+        { ipAddress: '127.0.0.1', userAgent: 'jest-agent' },
+      );
+    });
+
+    it('should surface unauthorized errors from auth service', async () => {
+      const mockUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        isActive: false,
+      };
+
+      mockAuthService.login.mockRejectedValue(
+        new UnauthorizedException('Account is deactivated'),
       );
 
-      // Act & Assert
-      const response = await request(app.getHttpServer() as unknown as Server)
-        .post('/auth/login')
-        .send({
-          email: 'test@example.com',
-          password: 'password',
-        })
-        .expect(200);
+      const request: MockRequest = {
+        user: mockUser,
+      };
 
-      expect(response.body).toEqual(loginResponse);
+      await expect(controller.login(request)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
+  });
 
-    it('should return 401 for invalid credentials', async () => {
-      // Arrange
-      mockLocalAuthGuard.canActivate.mockImplementation(() => {
-        throw new UnauthorizedException('Invalid credentials');
+  describe('refresh', () => {
+    it('uses Authorization bearer refresh token', async () => {
+      mockAuthService.refresh.mockResolvedValue({
+        access_token: 'access',
+        refresh_token: 'refresh2',
+        user: { id: 'u1', email: 'a@b.com', isActive: true },
       });
 
-      // Act & Assert
-      await request(app.getHttpServer() as unknown as Server)
-        .post('/auth/login')
-        .send({
-          email: 'test@example.com',
-          password: 'wrongpassword',
-        })
-        .expect(401);
+      const result = await controller.refresh('Bearer refresh1');
+
+      expect(mockAuthService.refresh).toHaveBeenCalledWith('refresh1');
+      expect(result.refresh_token).toBe('refresh2');
     });
 
-    it('should validate request body format', async () => {
-      // Arrange
-      mockLocalAuthGuard.canActivate.mockImplementation(() => {
-        throw new UnauthorizedException('Invalid credentials');
+    it('throws UnauthorizedException when header is missing', async () => {
+      await expect(controller.refresh(undefined)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
+
+  describe('logout', () => {
+    it('uses Authorization bearer refresh token', async () => {
+      mockAuthService.logout.mockResolvedValue({
+        message: 'Logged out successfully',
       });
 
-      // Act & Assert
-      await request(app.getHttpServer() as unknown as Server)
-        .post('/auth/login')
-        .send({
-          email: 'invalid-email',
-          password: '',
-        })
-        .expect(401); // Will fail at guard level first
+      const result = await controller.logout('Bearer refresh1');
+
+      expect(mockAuthService.logout).toHaveBeenCalledWith('refresh1');
+      expect(result.message).toBe('Logged out successfully');
+    });
+  });
+
+  describe('getProfile', () => {
+    it('returns profile when user is found', async () => {
+      const now = new Date();
+      mockAuthService.validateUserById.mockResolvedValue({
+        id: 'u1',
+        email: 'a@b.com',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const result = await controller.getProfile({
+        user: { id: 'u1', email: 'a@b.com', isActive: true },
+      });
+
+      expect(mockAuthService.validateUserById).toHaveBeenCalledWith('u1');
+      expect(result).toEqual({
+        id: 'u1',
+        email: 'a@b.com',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+        employee: null,
+      });
+    });
+
+    it('throws when authenticated user cannot be loaded', async () => {
+      mockAuthService.validateUserById.mockResolvedValue(null);
+
+      await expect(
+        controller.getProfile({
+          user: { id: 'u1', email: 'a@b.com', isActive: true },
+        }),
+      ).rejects.toThrow('User not found');
     });
   });
 });

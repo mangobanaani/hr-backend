@@ -15,6 +15,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/guards/roles.decorator';
 import { PoliciesService } from './policies.service';
 import { CreatePolicyDto } from './dto/create-policy.dto';
 import { UpdatePolicyDto } from './dto/update-policy.dto';
@@ -26,6 +27,7 @@ import { UpdatePolicyDto } from './dto/update-policy.dto';
 export class PoliciesController {
   constructor(private readonly policiesService: PoliciesService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({ summary: 'Create a new policy' })
   @ApiResponse({
@@ -50,6 +52,7 @@ export class PoliciesController {
     return this.policiesService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({ summary: 'Update a policy' })
   @ApiResponse({
@@ -60,6 +63,7 @@ export class PoliciesController {
     return this.policiesService.update(id, updatePolicyDto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a policy' })
   @ApiResponse({

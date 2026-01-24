@@ -18,6 +18,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/guards/roles.decorator';
 import { GoalsService } from './goals.service';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
@@ -29,6 +30,7 @@ import { UpdateGoalDto } from './dto/update-goal.dto';
 export class GoalsController {
   constructor(private readonly goalsService: GoalsService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({
     summary: 'Create goal',
@@ -86,6 +88,7 @@ export class GoalsController {
     return this.goalsService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({
     summary: 'Update goal',
@@ -107,6 +110,7 @@ export class GoalsController {
     return this.goalsService.update(id, updateGoalDto);
   }
 
+  @Roles('admin')
   @Patch(':id/progress')
   @ApiOperation({
     summary: 'Update goal progress',
@@ -128,6 +132,7 @@ export class GoalsController {
     return this.goalsService.updateProgress(id, progress);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete goal',

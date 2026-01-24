@@ -17,6 +17,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/guards/roles.decorator';
 import { EmployeeSkillsService } from './employee-skills.service';
 import { 
   CreateEmployeeSkillDto,
@@ -32,6 +33,7 @@ import { EmployeeSkill } from '@prisma/client';
 export class EmployeeSkillsController {
   constructor(private readonly employeeSkillsService: EmployeeSkillsService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({ summary: 'Create a new employee skill record' })
   async create(
@@ -73,6 +75,7 @@ export class EmployeeSkillsController {
     return this.employeeSkillsService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({ summary: 'Update an employee skill record' })
   @ApiParam({ name: 'id', description: 'Employee skill ID' })
@@ -83,6 +86,7 @@ export class EmployeeSkillsController {
     return this.employeeSkillsService.update(id, updateEmployeeSkillDto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete an employee skill record' })
   @ApiParam({ name: 'id', description: 'Employee skill ID' })

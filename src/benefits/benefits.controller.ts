@@ -20,9 +20,12 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/guards/roles.decorator';
 import { PrismaService } from '../database/prisma.service';
 import { CreateBenefitDto } from './dto/create-benefit.dto';
 import { UpdateBenefitDto } from './dto/update-benefit.dto';
+import { CreateBenefitEnrollmentDto } from './dto/create-benefit-enrollment.dto';
+import { UpdateBenefitEnrollmentDto } from './dto/update-benefit-enrollment.dto';
 
 interface BenefitResponse {
   success: boolean;
@@ -38,6 +41,7 @@ interface BenefitResponse {
 export class BenefitsController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({
     summary: 'Create benefit',
@@ -192,6 +196,7 @@ export class BenefitsController {
     }
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({
     summary: 'Update benefit',
@@ -280,6 +285,7 @@ export class BenefitsController {
     }
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete benefit',
@@ -337,5 +343,209 @@ export class BenefitsController {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  @Roles('admin')
+  @Post(':id/enrollments')
+  @ApiOperation({
+    summary: 'Enroll employee in benefit',
+    description: 'Enroll an employee in the specified benefit',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Benefit ID',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Benefit enrollment created successfully',
+  })
+  async enroll(
+    @Param('id') id: string,
+    @Body() enrollmentDto: CreateBenefitEnrollmentDto,
+  ): Promise<BenefitResponse> {
+    const benefit = await this.prisma.benefit.findUnique({
+      where: { id },
+    });
+    if (!benefit) {
+      throw new NotFoundException('Benefit not found');
+    }
+
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: enrollmentDto.employeeId },
+    });
+    if (!employee) {
+      throw new NotFoundException('Employee not found');
+    }
+
+    const existing = await this.prisma.employeeBenefit.findUnique({
+      where: {
+        employeeId_benefitId: {
+          employeeId: enrollmentDto.employeeId,
+          benefitId: id,
+        },
+      },
+    });
+    if (existing) {
+      throw new ConflictException('Employee is already enrolled in this benefit');
+    }
+
+    const enrollment = await this.prisma.employeeBenefit.create({
+      data: {
+        employeeId: enrollmentDto.employeeId,
+        benefitId: id,
+        startDate: new Date(enrollmentDto.startDate),
+        endDate: enrollmentDto.endDate ? new Date(enrollmentDto.endDate) : null,
+        cost: enrollmentDto.cost,
+        notes: enrollmentDto.notes,
+        isActive: enrollmentDto.isActive ?? true,
+      },
+    });
+
+    return {
+      success: true,
+      data: enrollment,
+      message: 'Benefit enrollment created successfully',
+    };
+  }
+
+  @Get(':id/enrollments')
+  @ApiOperation({
+    summary: 'List benefit enrollments',
+    description: 'Retrieve all enrollments for a specific benefit',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Benefit ID',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Benefit enrollments retrieved successfully',
+  })
+  async listEnrollments(@Param('id') id: string): Promise<BenefitResponse> {
+    const benefit = await this.prisma.benefit.findUnique({
+      where: { id },
+    });
+    if (!benefit) {
+      throw new NotFoundException('Benefit not found');
+    }
+
+    const enrollments = await this.prisma.employeeBenefit.findMany({
+      where: { benefitId: id },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      data: enrollments,
+      count: enrollments.length,
+      message: 'Benefit enrollments retrieved successfully',
+    };
+  }
+
+  @Roles('admin')
+  @Patch(':id/enrollments/:enrollmentId')
+  @ApiOperation({
+    summary: 'Update benefit enrollment',
+    description: 'Update a specific benefit enrollment',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Benefit ID',
+    type: 'string',
+  })
+  @ApiParam({
+    name: 'enrollmentId',
+    description: 'Enrollment ID',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Benefit enrollment updated successfully',
+  })
+  async updateEnrollment(
+    @Param('id') id: string,
+    @Param('enrollmentId') enrollmentId: string,
+    @Body() updateDto: UpdateBenefitEnrollmentDto,
+  ): Promise<BenefitResponse> {
+    const existing = await this.prisma.employeeBenefit.findUnique({
+      where: { id: enrollmentId },
+    });
+    if (!existing || existing.benefitId !== id) {
+      throw new NotFoundException('Benefit enrollment not found');
+    }
+
+    const updated = await this.prisma.employeeBenefit.update({
+      where: { id: enrollmentId },
+      data: {
+        employeeId: updateDto.employeeId,
+        benefitId: id,
+        startDate: updateDto.startDate
+          ? new Date(updateDto.startDate)
+          : undefined,
+        endDate: updateDto.endDate ? new Date(updateDto.endDate) : undefined,
+        cost: updateDto.cost,
+        notes: updateDto.notes,
+        isActive: updateDto.isActive,
+      },
+    });
+
+    return {
+      success: true,
+      data: updated,
+      message: 'Benefit enrollment updated successfully',
+    };
+  }
+
+  @Roles('admin')
+  @Delete(':id/enrollments/:enrollmentId')
+  @ApiOperation({
+    summary: 'Remove benefit enrollment',
+    description: 'Remove an employee from a benefit enrollment',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Benefit ID',
+    type: 'string',
+  })
+  @ApiParam({
+    name: 'enrollmentId',
+    description: 'Enrollment ID',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Benefit enrollment removed successfully',
+  })
+  async removeEnrollment(
+    @Param('id') id: string,
+    @Param('enrollmentId') enrollmentId: string,
+  ): Promise<BenefitResponse> {
+    const existing = await this.prisma.employeeBenefit.findUnique({
+      where: { id: enrollmentId },
+    });
+    if (!existing || existing.benefitId !== id) {
+      throw new NotFoundException('Benefit enrollment not found');
+    }
+
+    await this.prisma.employeeBenefit.delete({
+      where: { id: enrollmentId },
+    });
+
+    return {
+      success: true,
+      message: 'Benefit enrollment removed successfully',
+    };
   }
 }

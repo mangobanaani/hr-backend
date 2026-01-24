@@ -1,8 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
+import { LoggerModule } from './common/logging/logger.module';
 import { EmployeesModule } from './employees/employees.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { BenefitsModule } from './benefits/benefits.module';
@@ -19,9 +21,15 @@ import { SecurityModule } from './security/security.module';
 import { SkillsModule } from './skills/skills.module';
 import { EmployeeSkillsModule } from './employee-skills/employee-skills.module';
 import { GoalsModule } from './goals/goals.module';
+import { HealthModule } from './health/health.module';
+import { RolesGuard } from './auth/guards/roles.guard';
+import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
+import { CacheModule } from './common/cache/cache.module';
 
 @Module({
   imports: [
+    LoggerModule,
+    CacheModule,
     SecurityModule,
     DatabaseModule,
     AuthModule,
@@ -40,10 +48,19 @@ import { GoalsModule } from './goals/goals.module';
     SkillsModule,
     EmployeeSkillsModule,
     GoalsModule,
+    HealthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+  ],
 })
-export class AppModule {
-  // Main application module for HR system
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestLoggingMiddleware).forRoutes('*');
+  }
 }

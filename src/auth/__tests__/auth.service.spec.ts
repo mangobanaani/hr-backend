@@ -1,6 +1,7 @@
 import { Test, type TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../auth.service';
 import { PrismaService } from '../../database/prisma.service';
 import { mockPrismaService } from '../../../test/setup';
@@ -28,6 +29,18 @@ describe('AuthService', () => {
 
   const mockJwtService = {
     signAsync: jest.fn(),
+    verifyAsync: jest.fn(),
+  };
+
+  const mockConfigService = {
+    get: jest.fn((key: string, defaultValue?: any) => {
+      const config: Record<string, string> = {
+        JWT_REFRESH_SECRET: 'test-refresh-secret',
+        JWT_REFRESH_EXPIRES_IN: '7d',
+      };
+      const value = config[key];
+      return value !== undefined ? value : defaultValue;
+    }),
   };
 
   beforeEach(async () => {
@@ -41,6 +54,10 @@ describe('AuthService', () => {
         {
           provide: JwtService,
           useValue: mockJwtService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
         },
       ],
     }).compile();
@@ -118,17 +135,28 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('should return access token and user info for active user', async () => {
+    it('should return access and refresh tokens for active user', async () => {
       // Arrange
-      const expectedToken = 'jwt-token';
-      mockJwtService.signAsync.mockResolvedValue(expectedToken);
+      mockJwtService.signAsync
+        .mockResolvedValueOnce('access-token')
+        .mockResolvedValueOnce('refresh-token');
+      mockJwtService.verifyAsync.mockResolvedValue({
+        sub: mockUser.id,
+        email: mockUser.email,
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      });
+      mockPrismaService.userSession.create.mockResolvedValue({ id: 'sess-1' });
 
       // Act
-      const result = await service.login(mockUser);
+      const result = await service.login(mockUser, {
+        ipAddress: '127.0.0.1',
+        userAgent: 'jest',
+      });
 
       // Assert
       expect(result).toEqual({
-        access_token: expectedToken,
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
         user: {
           id: mockUser.id,
           email: mockUser.email,
@@ -139,6 +167,7 @@ describe('AuthService', () => {
         sub: mockUser.id,
         email: mockUser.email,
       });
+      expect(mockPrismaService.userSession.create).toHaveBeenCalled();
     });
 
     it('should throw UnauthorizedException for inactive user', async () => {
@@ -208,10 +237,65 @@ describe('AuthService', () => {
     });
   });
 
-  describe('hashPassword', () => {
-    it('should return hashed password', async () => {
+  describe('refresh', () => {
+    it('should rotate tokens when refresh token is valid', async () => {
       // Arrange
-      const password = 'plaintext';
+      mockJwtService.verifyAsync
+        .mockResolvedValueOnce({
+          sub: mockUser.id,
+          email: mockUser.email,
+          exp: 9999999999,
+        })
+        .mockResolvedValueOnce({
+          sub: mockUser.id,
+          email: mockUser.email,
+          exp: 9999999999,
+        });
+      mockPrismaService.userSession.findUnique.mockResolvedValue({
+        id: 'sess-1',
+        userId: mockUser.id,
+        refreshToken: 'refresh-token',
+        expiresAt: new Date(Date.now() + 3600_000),
+      });
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockJwtService.signAsync
+        .mockResolvedValueOnce('new-access')
+        .mockResolvedValueOnce('new-refresh');
+      mockPrismaService.userSession.update.mockResolvedValue({ id: 'sess-1' });
+
+      // Act
+      const result = await service.refresh('refresh-token');
+
+      // Assert
+      expect(result.access_token).toBe('new-access');
+      expect(result.refresh_token).toBe('new-refresh');
+    });
+  });
+
+  describe('logout', () => {
+    it('should delete session for refresh token', async () => {
+      // Arrange
+      mockJwtService.verifyAsync.mockResolvedValue({
+        sub: mockUser.id,
+        email: mockUser.email,
+        exp: 9999999999,
+      });
+      mockPrismaService.userSession.deleteMany.mockResolvedValue({ count: 1 });
+
+      // Act
+      await service.logout('refresh-token');
+
+      // Assert
+      expect(mockPrismaService.userSession.deleteMany).toHaveBeenCalledWith({
+        where: { refreshToken: 'refresh-token' },
+      });
+    });
+  });
+
+  describe('hashPassword', () => {
+    it('should return hashed password for valid password', async () => {
+      // Arrange
+      const password = 'ValidPassword123!'; // Strong password
       (bcryptMock.hash as jest.Mock).mockResolvedValue('hashedPassword');
 
       // Act
@@ -222,14 +306,22 @@ describe('AuthService', () => {
       expect(bcryptMock.hash).toHaveBeenCalledWith(password, 12);
     });
 
+    it('should throw error when password is too weak', async () => {
+      // Act & Assert
+      await expect(service.hashPassword('weak')).rejects.toThrow(
+        'Password does not meet security requirements',
+      );
+    });
+
     it('should throw error when hashing fails', async () => {
       // Arrange
+      const password = 'ValidPassword123!';
       (bcryptMock.hash as jest.Mock).mockRejectedValue(
         new Error('Hashing failed'),
       );
 
       // Act & Assert
-      await expect(service.hashPassword('password')).rejects.toThrow(
+      await expect(service.hashPassword(password)).rejects.toThrow(
         'Password hashing failed',
       );
     });

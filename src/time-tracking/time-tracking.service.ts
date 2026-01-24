@@ -4,15 +4,26 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import type { Prisma, TimeRecord } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { CreateTimeRecordDto } from './dto/create-time-record.dto';
 import { UpdateTimeRecordDto } from './dto/update-time-record.dto';
+import { CursorPaginationDto } from '../common/dto/cursor-pagination.dto';
+import { CursorPaginatedResponse, createCursorPaginatedResponse } from '../common/interfaces/paginated-response.interface';
 
 @Injectable()
 export class TimeTrackingService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createTimeRecordDto: CreateTimeRecordDto) {
+  private hasText(value?: string | null): value is string {
+    return value !== undefined && value !== null && value !== '';
+  }
+
+  private toDate(value?: string | null): Date | undefined {
+    return this.hasText(value) ? new Date(value) : undefined;
+  }
+
+  async create(createTimeRecordDto: CreateTimeRecordDto): Promise<TimeRecord> {
     // Validate employee exists
     const employee = await this.prisma.employee.findUnique({
       where: { id: createTimeRecordDto.employeeId },
@@ -37,35 +48,38 @@ export class TimeTrackingService {
       );
     }
 
-    // Calculate total hours if clock in/out provided
-    let totalHours = createTimeRecordDto.totalHours;
-    if (createTimeRecordDto.clockIn && createTimeRecordDto.clockOut) {
-      const clockIn = new Date(createTimeRecordDto.clockIn);
-      const clockOut = new Date(createTimeRecordDto.clockOut);
-      const diffMs = clockOut.getTime() - clockIn.getTime();
-      totalHours = diffMs / (1000 * 60 * 60); // Convert to hours
+    const clockInDate = this.toDate(createTimeRecordDto.clockIn);
+    const clockOutDate = this.toDate(createTimeRecordDto.clockOut);
+    let { totalHours } = createTimeRecordDto;
 
-      // Subtract break time if provided
-      if (createTimeRecordDto.breakStart && createTimeRecordDto.breakEnd) {
-        const breakStart = new Date(createTimeRecordDto.breakStart);
-        const breakEnd = new Date(createTimeRecordDto.breakEnd);
-        const breakMs = breakEnd.getTime() - breakStart.getTime();
+    if (clockInDate && clockOutDate) {
+      const diffMs = clockOutDate.getTime() - clockInDate.getTime();
+      totalHours = diffMs / (1000 * 60 * 60);
+
+      const breakStartDate = this.toDate(createTimeRecordDto.breakStart);
+      const breakEndDate = this.toDate(createTimeRecordDto.breakEnd);
+      if (breakStartDate && breakEndDate) {
+        const breakMs = breakEndDate.getTime() - breakStartDate.getTime();
         totalHours -= breakMs / (1000 * 60 * 60);
       }
     }
+
+    const breakStartDate = this.toDate(createTimeRecordDto.breakStart);
+    const breakEndDate = this.toDate(createTimeRecordDto.breakEnd);
 
     const timeRecord = await this.prisma.timeRecord.create({
       data: {
         employeeId: createTimeRecordDto.employeeId,
         date: new Date(createTimeRecordDto.date),
-        clockIn: createTimeRecordDto.clockIn ? new Date(createTimeRecordDto.clockIn) : undefined,
-        clockOut: createTimeRecordDto.clockOut ? new Date(createTimeRecordDto.clockOut) : undefined,
-        breakStart: createTimeRecordDto.breakStart ? new Date(createTimeRecordDto.breakStart) : undefined,
-        breakEnd: createTimeRecordDto.breakEnd ? new Date(createTimeRecordDto.breakEnd) : undefined,
+        clockIn: clockInDate,
+        clockOut: clockOutDate,
+        breakStart: breakStartDate,
+        breakEnd: breakEndDate,
         totalHours,
-        status: createTimeRecordDto.status as any,
+        status: createTimeRecordDto.status,
         notes: createTimeRecordDto.notes,
-        location: createTimeRecordDto.location ? JSON.stringify(createTimeRecordDto.location) : undefined,
+        location: (createTimeRecordDto.location ??
+          undefined) as Prisma.InputJsonValue,
       },
       include: {
         employee: {
@@ -82,25 +96,40 @@ export class TimeTrackingService {
     return timeRecord;
   }
 
-  async findAll(employeeId?: string, startDate?: string, endDate?: string) {
-    const where: any = {};
+  async findAll(
+    employeeId?: string,
+    startDate?: string,
+    endDate?: string,
+    pagination?: CursorPaginationDto,
+  ): Promise<CursorPaginatedResponse<TimeRecord>> {
+    const { cursor, limit = 20 } = pagination || {};
+    const where: Prisma.TimeRecordWhereInput = {};
 
-    if (employeeId) {
+    if (employeeId !== undefined && employeeId.length > 0) {
       where.employeeId = employeeId;
     }
 
-    if (startDate || endDate) {
+    if (
+      (startDate !== undefined && startDate.length > 0) ||
+      (endDate !== undefined && endDate.length > 0)
+    ) {
       where.date = {};
-      if (startDate) {
+      if (startDate !== undefined && startDate.length > 0) {
         where.date.gte = new Date(startDate);
       }
-      if (endDate) {
+      if (endDate !== undefined && endDate.length > 0) {
         where.date.lte = new Date(endDate);
       }
     }
 
+    // Cursor-based pagination
+    if (cursor) {
+      where.id = { lt: cursor }; // Get records before this cursor (older records)
+    }
+
     const timeRecords = await this.prisma.timeRecord.findMany({
       where,
+      take: limit + 1, // Fetch one extra to check if there's more
       include: {
         employee: {
           select: {
@@ -111,13 +140,13 @@ export class TimeTrackingService {
           },
         },
       },
-      orderBy: { date: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
 
-    return timeRecords;
+    return createCursorPaginatedResponse(timeRecords, limit, cursor);
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<TimeRecord> {
     const timeRecord = await this.prisma.timeRecord.findUnique({
       where: { id },
       include: {
@@ -145,7 +174,10 @@ export class TimeTrackingService {
     return timeRecord;
   }
 
-  async update(id: string, updateTimeRecordDto: UpdateTimeRecordDto) {
+  async update(
+    id: string,
+    updateTimeRecordDto: UpdateTimeRecordDto,
+  ): Promise<TimeRecord> {
     const existingRecord = await this.prisma.timeRecord.findUnique({
       where: { id },
     });
@@ -155,23 +187,29 @@ export class TimeTrackingService {
     }
 
     // Prevent update if already approved
-    if (existingRecord.status === 'APPROVED' && !updateTimeRecordDto.status) {
-      throw new BadRequestException(
-        'Cannot modify approved time record',
-      );
+    if (
+      existingRecord.status === 'APPROVED' &&
+      updateTimeRecordDto.status === undefined
+    ) {
+      throw new BadRequestException('Cannot modify approved time record');
     }
 
     // Recalculate total hours if times are updated
-    let totalHours = updateTimeRecordDto.totalHours;
-    const clockIn = updateTimeRecordDto.clockIn ? new Date(updateTimeRecordDto.clockIn) : existingRecord.clockIn;
-    const clockOut = updateTimeRecordDto.clockOut ? new Date(updateTimeRecordDto.clockOut) : existingRecord.clockOut;
+    let { totalHours } = updateTimeRecordDto;
+    const clockIn =
+      this.toDate(updateTimeRecordDto.clockIn) ?? existingRecord.clockIn;
+    const clockOut =
+      this.toDate(updateTimeRecordDto.clockOut) ?? existingRecord.clockOut;
 
-    if (clockIn && clockOut && !totalHours) {
+    if (clockIn !== null && clockOut !== null && totalHours === undefined) {
       const diffMs = clockOut.getTime() - clockIn.getTime();
       totalHours = diffMs / (1000 * 60 * 60);
 
-      const breakStart = updateTimeRecordDto.breakStart ? new Date(updateTimeRecordDto.breakStart) : existingRecord.breakStart;
-      const breakEnd = updateTimeRecordDto.breakEnd ? new Date(updateTimeRecordDto.breakEnd) : existingRecord.breakEnd;
+      const breakStart =
+        this.toDate(updateTimeRecordDto.breakStart) ??
+        existingRecord.breakStart;
+      const breakEnd =
+        this.toDate(updateTimeRecordDto.breakEnd) ?? existingRecord.breakEnd;
 
       if (breakStart && breakEnd) {
         const breakMs = breakEnd.getTime() - breakStart.getTime();
@@ -182,15 +220,16 @@ export class TimeTrackingService {
     const timeRecord = await this.prisma.timeRecord.update({
       where: { id },
       data: {
-        date: updateTimeRecordDto.date ? new Date(updateTimeRecordDto.date) : undefined,
-        clockIn: updateTimeRecordDto.clockIn ? new Date(updateTimeRecordDto.clockIn) : undefined,
-        clockOut: updateTimeRecordDto.clockOut ? new Date(updateTimeRecordDto.clockOut) : undefined,
-        breakStart: updateTimeRecordDto.breakStart ? new Date(updateTimeRecordDto.breakStart) : undefined,
-        breakEnd: updateTimeRecordDto.breakEnd ? new Date(updateTimeRecordDto.breakEnd) : undefined,
+        date: this.toDate(updateTimeRecordDto.date),
+        clockIn: this.toDate(updateTimeRecordDto.clockIn),
+        clockOut: this.toDate(updateTimeRecordDto.clockOut),
+        breakStart: this.toDate(updateTimeRecordDto.breakStart),
+        breakEnd: this.toDate(updateTimeRecordDto.breakEnd),
         totalHours,
-        status: updateTimeRecordDto.status as any,
+        status: updateTimeRecordDto.status,
         notes: updateTimeRecordDto.notes,
-        location: updateTimeRecordDto.location ? JSON.stringify(updateTimeRecordDto.location) : undefined,
+        location: (updateTimeRecordDto.location ??
+          undefined) as Prisma.InputJsonValue,
       },
       include: {
         employee: {
@@ -207,7 +246,7 @@ export class TimeTrackingService {
     return timeRecord;
   }
 
-  async approve(id: string) {
+  async approve(id: string): Promise<TimeRecord> {
     const timeRecord = await this.prisma.timeRecord.findUnique({
       where: { id },
     });
@@ -216,7 +255,10 @@ export class TimeTrackingService {
       throw new NotFoundException('Time record not found');
     }
 
-    if (timeRecord.status !== 'PENDING' && timeRecord.status !== 'NEEDS_REVIEW') {
+    if (
+      timeRecord.status !== 'PENDING' &&
+      timeRecord.status !== 'NEEDS_REVIEW'
+    ) {
       throw new BadRequestException(
         'Only pending or needs review time records can be approved',
       );
@@ -242,7 +284,7 @@ export class TimeTrackingService {
     return updatedRecord;
   }
 
-  async reject(id: string, reason?: string) {
+  async reject(id: string, reason?: string): Promise<TimeRecord> {
     const timeRecord = await this.prisma.timeRecord.findUnique({
       where: { id },
     });
@@ -251,7 +293,10 @@ export class TimeTrackingService {
       throw new NotFoundException('Time record not found');
     }
 
-    if (timeRecord.status !== 'PENDING' && timeRecord.status !== 'NEEDS_REVIEW') {
+    if (
+      timeRecord.status !== 'PENDING' &&
+      timeRecord.status !== 'NEEDS_REVIEW'
+    ) {
       throw new BadRequestException(
         'Only pending or needs review time records can be rejected',
       );
@@ -261,7 +306,7 @@ export class TimeTrackingService {
       where: { id },
       data: {
         status: 'REJECTED',
-        notes: reason || timeRecord.notes,
+        notes: reason ?? timeRecord.notes,
       },
       include: {
         employee: {
@@ -278,7 +323,7 @@ export class TimeTrackingService {
     return updatedRecord;
   }
 
-  async remove(id: string) {
+  async remove(id: string): Promise<{ message: string }> {
     const timeRecord = await this.prisma.timeRecord.findUnique({
       where: { id },
     });
@@ -289,9 +334,7 @@ export class TimeTrackingService {
 
     // Prevent deletion if already approved
     if (timeRecord.status === 'APPROVED') {
-      throw new BadRequestException(
-        'Cannot delete approved time record',
-      );
+      throw new BadRequestException('Cannot delete approved time record');
     }
 
     await this.prisma.timeRecord.delete({
